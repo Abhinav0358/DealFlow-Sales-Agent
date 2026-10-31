@@ -9,21 +9,21 @@
   --color-mute: #8b8f98;
   --color-dim: #5b5f68;
   --color-line: rgb(255 255 255 / 0.07);
-  --color-signal: #c9f24a;
-  --color-alert: #e5584f;
+  --color-signal: #ff6a2c;
+  --color-alert: #ef4f6f;
 }
 
 html, body, #root { height: 100%; }
 body { @apply bg-bg text-fg font-sans antialiased; }
-::selection { background: rgb(201 242 74 / 0.28); }
+::selection { background: rgb(255 106 44 / 0.28); }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.1); border-radius: 8px; }
 
 @utility label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
 @utility pill { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-40; }
 @utility pill-solid { @apply pill bg-fg text-bg hover:bg-white; }
-@utility pill-line { @apply pill border border-white/15 text-fg hover:bg-white/[0.05]; }
-@utility field { @apply w-full border-0 border-b border-white/15 bg-transparent px-0 py-2.5 text-fg outline-none transition-colors placeholder:text-dim focus:border-fg/60; }
+@utility pill-line { @apply pill border border-white/15 text-fg hover:border-signal/45 hover:bg-signal/[0.04]; }
+@utility field { @apply w-full border-0 border-b border-white/15 bg-transparent px-0 py-2.5 text-fg outline-none transition-colors placeholder:text-dim focus:border-signal/60; }
 
 @keyframes slide-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -31,6 +31,16 @@ body { @apply bg-bg text-fg font-sans antialiased; }
 .anim-slide { animation: slide-in 0.18s ease-out both; }
 .anim-fade { animation: fade-in 0.18s ease-out both; }
 .bar-grow { transform-origin: left; animation: bar-grow 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.anim-page { animation: page-in 0.28s ease-out backwards; } /* no forwards fill: a lingering transform would trap position:fixed children */
+
+/* Cursor-responsive ambient light for the main workspace. Position is set from JS via --mx/--my. */
+.spotlight {
+  position: absolute; inset: 0; z-index: -10; pointer-events: none; opacity: 0; transition: opacity 0.5s ease;
+  background: radial-gradient(460px circle at var(--mx, 50%) var(--my, 50%), rgb(255 106 44 / 0.055), transparent 70%);
+}
+@media (hover: none) { .spotlight { display: none; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }

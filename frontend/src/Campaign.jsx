@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from './api'
-import { fmtTime, pad, Label, Tag, TierDot } from './ui'
+import { fmtTime, pad, Label, Tag, TierDot, Disclosure } from './ui'
 import ProspectPanel from './ProspectPanel'
 
 const DOT = {
@@ -105,7 +105,28 @@ export default function Campaign({ id, onChange }) {
         </div>
       </div>
 
-      <section className="mt-14 border-t border-line pt-6">
+      {c.context && (
+        <div className="mt-10">
+          <Disclosure title="Outreach context" summary={`${c.context.sender_name}, ${c.context.sender_company}`}>
+            <dl className="grid gap-x-10 gap-y-5 sm:grid-cols-2">
+              {[
+                ['Sender', `${c.context.sender_name}, ${c.context.sender_company}`],
+                ['What the company does', c.context.company_description],
+                ['Offering', c.context.offering],
+                ['Why it matters to prospects', c.context.relevance],
+                ['Call to action', c.context.cta],
+              ].map(([k, v]) => (
+                <div key={k}>
+                  <dt><Label>{k}</Label></dt>
+                  <dd className={`mt-1.5 text-[14px] leading-snug ${v ? 'text-fg/90' : 'text-dim'}`}>{v || 'Not provided. Left out of the drafts.'}</dd>
+                </div>
+              ))}
+            </dl>
+          </Disclosure>
+        </div>
+      )}
+
+      <section className={`${c.context ? 'mt-4' : 'mt-14'} border-t border-line pt-6`}>
         <div className="mb-6 flex items-center justify-between">
           <Label>Agent execution</Label>
           <Label className={running ? 'text-signal' : c.status === 'error' ? 'text-alert' : 'text-dim'}>
@@ -133,7 +154,7 @@ export default function Campaign({ id, onChange }) {
               const n = f === 'All' ? ps.length : f === 'Approved' ? approved : count(f)
               return (
                 <button key={f} onClick={() => setFilter(f)}
-                  className={`-mb-px flex items-baseline gap-1.5 border-b pb-3 text-sm transition-colors ${filter === f ? 'border-fg text-fg' : 'border-transparent text-dim hover:text-mute'}`}>
+                  className={`-mb-px flex items-baseline gap-1.5 border-b pb-3 text-sm transition-colors ${filter === f ? 'border-signal text-fg' : 'border-transparent text-dim hover:text-mute'}`}>
                   {f}<span className="font-mono text-[11px] text-dim">{n}</span>
                 </button>
               )
@@ -146,14 +167,15 @@ export default function Campaign({ id, onChange }) {
           <thead>
             <tr className="text-left">
               {['Score', 'Prospect', 'Company', 'Size', 'Top signal', 'Status'].map((h, i) => (
-                <th key={h} className={`py-4 font-normal ${i === 5 ? 'text-right' : ''}`}><Label>{h}</Label></th>
+                <th key={h} className={`py-4 font-normal ${i === 5 ? 'text-right' : ''} ${i === 0 ? 'pl-3' : ''}`}><Label>{h}</Label></th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((p) => (
-              <tr key={p.id} onClick={() => setOpenId(p.id)} className="cursor-pointer border-t border-line transition-colors hover:bg-white/[0.025]">
-                <td className="w-32 py-4 pr-4">
+              <tr key={p.id} onClick={() => setOpenId(p.id)}
+                className={`group cursor-pointer border-t border-line transition-colors duration-200 ${openId === p.id ? 'bg-signal/[0.06]' : 'hover:bg-signal/[0.035]'}`}>
+                <td className={`w-32 py-4 pl-3 pr-4 transition-shadow duration-200 ${openId === p.id ? 'shadow-[inset_2px_0_0_0_#ff6a2c]' : 'group-hover:shadow-[inset_2px_0_0_0_rgb(255_106_44/0.5)]'}`}>
                   <div className="flex items-center gap-3">
                     <span className="w-9 font-mono text-2xl font-medium tabular-nums tracking-tight">{Math.round(p.score)}</span>
                     <TierDot tier={p.person.tier} />

@@ -166,35 +166,86 @@ def explain(person, company, icp):
     return {"summary": summary, "facts": facts, "inferences": inferences}
 
 
-def draft(person, company, icp, sender=""):
-    first = (person.get("name") or "").split(" ")[0] or "there"
-    cname = company.get("name") or "your company"
-    offering = icp.get("offering") or "what we're building"
-    hooks_used = []
+REQUIRED_CONTEXT = {
+    "sender_name": "Your name",
+    "sender_company": "Your company",
+    "offering": "What you're offering",
+    "cta": "Call to action",
+}
+OPTIONAL_CONTEXT = {
+    "company_description": "What your company does",
+    "relevance": "Why it's relevant to these prospects",
+}
+PLACEHOLDERS = {
+    "sender_name": "[your name]",
+    "sender_company": "[your company]",
+    "offering": "[what you're offering]",
+    "cta": "[your call to action]",
+}
 
+
+def clean_context(raw):
+    raw = raw if isinstance(raw, dict) else {}
+    return {k: " ".join(str(raw.get(k) or "").split()) for k in (*REQUIRED_CONTEXT, *OPTIONAL_CONTEXT)}
+
+
+def _sentence(text):
+    text = text.strip()
+    if not text:
+        return ""
+    text = text[0].upper() + text[1:]
+    return text if text[-1] in ".!?" else text + "."
+
+
+def _hook(person, company):
+    """One opening line built only from verified Crustdata facts. Returns (sentence, fact label)."""
+    cname, title = company.get("name"), person.get("title")
     tenure = _months_since(_date(person.get("start_date")))
     g = _growth_12m(company)
     m = _months_since(_date(company.get("last_fundraise_date")))
     if m is not None and m <= 18 and company.get("last_round_type"):
         rnd = re.sub(r"_", " ", str(company["last_round_type"])).title()
-        hook = f"Congrats on {cname}'s {rnd} round."
-        hooks_used.append("Last round")
-    elif tenure is not None and tenure <= 12 and person.get("title"):
-        hook = f"Congrats on stepping into the {person['title']} role at {cname}."
-        hooks_used.append("In role since")
-    elif g is not None and g >= 10:
-        hook = f"I noticed {cname} has grown its team about {g:.0f}% over the past year."
-        hooks_used.append("12-mo headcount growth")
-    elif company.get("industry"):
-        hook = f"I've been following teams in {company['industry']}, and {cname} stood out."
-        hooks_used.append("Industry")
-    else:
-        hook = f"I came across {cname} while researching teams like yours."
+        return f"Congrats on {cname}'s {rnd} round.", "Last round"
+    if tenure is not None and tenure <= 12 and title:
+        return f"Congrats on stepping into the {title} role at {cname}.", "In role since"
+    if g is not None and g >= 10:
+        return f"I noticed {cname} has grown its team about {g:.0f}% over the past year.", "12-mo headcount growth"
+    if title and company.get("industry"):
+        return f"I'm reaching out to you as {title} at {cname}, a {company['industry']} company.", "Current title"
+    if title:
+        return f"I'm reaching out to you as {title} at {cname}.", "Current title"
+    return "", None
 
-    role_line = (f"As {person['title']}, you're likely the right person to weigh in on {offering}."
-                 if person.get("title") else f"I thought {offering} could be relevant to {cname}.")
-    body = (f"Hi {first},\n\n{hook} {role_line}\n\n"
-            f"Would you be open to a 15-minute conversation next week to see if it's a fit?\n\n"
-            f"Best,\n{sender or '[Your name]'}")
-    subject = f"{cname} + {offering[:40]}" if icp.get("offering") else f"Quick question for {cname}"
-    return subject, body, hooks_used
+
+def draft(person, company, ctx):
+    """Compose a draft from the user's own campaign context plus verified prospect facts.
+
+    The sender's words are used verbatim. Nothing about the sender's business, benefits or customers is
+    generated here. Missing required context becomes a visible [placeholder], never an invented value.
+    """
+    ctx = clean_context(ctx)
+    first = (person.get("name") or "").split(" ")[0] or "there"
+    cname = company.get("name") or "your company"
+    val = {k: ctx[k] or PLACEHOLDERS[k] for k in REQUIRED_CONTEXT}
+    missing = [k for k in REQUIRED_CONTEXT if not ctx[k]]
+    gaps = [k for k in OPTIONAL_CONTEXT if not ctx[k]]
+
+    hook, hook_label = _hook(person, company)
+    intro = f"I'm {val['sender_name']} at {val['sender_company']}."
+    if ctx["company_description"]:
+        intro += " " + _sentence(ctx["company_description"])
+    pitch = _sentence(ctx["offering"]) or PLACEHOLDERS["offering"]
+    if ctx["relevance"]:
+        pitch += " " + _sentence(ctx["relevance"])
+    cta = _sentence(ctx["cta"]) or PLACEHOLDERS["cta"]
+
+    paras = [f"Hi {first},"]
+    if hook:
+        paras.append(hook)
+    sign_off = "Best,\n" + val["sender_name"] + "\n" + val["sender_company"]
+    paras += [intro, pitch, cta, sign_off]
+    subject = f"{val['sender_company']} x {cname}"
+    meta = {"hooks": [hook_label] if hook_label else [],
+            "missing_required": [REQUIRED_CONTEXT[k] for k in missing],
+            "missing_optional": [OPTIONAL_CONTEXT[k] for k in gaps]}
+    return subject, "\n\n".join(paras), meta

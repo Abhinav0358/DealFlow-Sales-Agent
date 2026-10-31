@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import NewCampaign from './NewCampaign'
 import Campaign from './Campaign'
@@ -23,6 +23,18 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('df.sidebar') === 'collapsed')
   const [mobileOpen, setMobileOpen] = useState(false)
   const slim = collapsed && !mobileOpen
+  const glow = useRef(null)
+
+  // Cursor-following ambient light: writes CSS vars directly, so pointer moves never re-render React.
+  const onMove = (e) => {
+    const el = glow.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`)
+    el.style.setProperty('--my', `${e.clientY - r.top}px`)
+    el.style.opacity = 1
+  }
+  const onLeave = () => { if (glow.current) glow.current.style.opacity = 0 }
 
   const refresh = () => api.list().then(setCampaigns).catch(() => {})
   useEffect(() => {
@@ -74,13 +86,13 @@ export default function App() {
             const active = view.id === c.id
             return slim ? (
               <button key={c.id} title={c.prompt} onClick={() => go({ page: 'campaign', id: c.id })}
-                className={`flex w-full flex-col items-center gap-1.5 border-b border-line py-3 transition-colors hover:bg-white/[0.03] ${active ? 'bg-white/[0.05]' : ''}`}>
+                className={`flex w-full flex-col items-center gap-1.5 border-b border-line py-3 transition-colors hover:bg-signal/[0.04] ${active ? 'bg-signal/[0.07] shadow-[inset_2px_0_0_0_#ff6a2c]' : ''}`}>
                 <StatusDot status={c.status} />
                 <span className="font-mono text-[11px] text-mute">{pad(c.id)}</span>
               </button>
             ) : (
               <button key={c.id} onClick={() => go({ page: 'campaign', id: c.id })}
-                className={`block w-full border-b border-line px-5 py-3.5 text-left transition-colors hover:bg-white/[0.03] ${active ? 'bg-white/[0.04] shadow-[inset_2px_0_0_0_#f2f3f5]' : ''}`}>
+                className={`block w-full border-b border-line px-5 py-3.5 text-left transition-all duration-200 hover:bg-signal/[0.04] hover:shadow-[inset_2px_0_0_0_rgb(255_106_44/0.4)] ${active ? 'bg-signal/[0.07] shadow-[inset_2px_0_0_0_#ff6a2c]' : ''}`}>
                 <div className="flex items-center gap-2"><StatusDot status={c.status} /><span className="label text-dim">#{pad(c.id)}</span></div>
                 <div className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-fg/90">{c.prompt}</div>
                 <div className="mt-1.5 font-mono text-[11px] text-dim">{c.prospects} prospects · {c.approved} approved</div>
@@ -104,15 +116,18 @@ export default function App() {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="relative isolate flex min-w-0 flex-1 flex-col" onPointerMove={onMove} onPointerLeave={onLeave}>
+        <div ref={glow} className="spotlight" />
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-5 md:hidden">
           <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="grid h-8 w-8 place-items-center rounded-md text-mute hover:bg-white/[0.05]"><PanelIcon /></button>
           <Wordmark />
         </header>
         <main className="min-w-0 flex-1 overflow-y-auto">
-          {view.page === 'new'
-            ? <NewCampaign onCreated={(id) => { refresh(); setView({ page: 'campaign', id }) }} health={health} />
-            : <Campaign key={view.id} id={view.id} onChange={refresh} />}
+          <div key={view.page + (view.id ?? '')} className="anim-page">
+            {view.page === 'new'
+              ? <NewCampaign onCreated={(id) => { refresh(); setView({ page: 'campaign', id }) }} health={health} />
+              : <Campaign id={view.id} onChange={refresh} />}
+          </div>
         </main>
       </div>
     </div>

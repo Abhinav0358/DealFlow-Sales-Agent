@@ -13,12 +13,16 @@ function Section({ title, tag, children }) {
   )
 }
 
+const PLACEHOLDER = /\[(your name|your company|what you're offering|your call to action)\]/i
+
 export default function ProspectPanel({ p, onClose, onSave }) {
   const [subject, setSubject] = useState(p.draft_subject)
   const [body, setBody] = useState(p.draft_body)
   const [saving, setSaving] = useState(false)
   const dirty = subject !== p.draft_subject || body !== p.draft_body
   const per = p.person, co = p.company || {}
+  const unresolved = PLACEHOLDER.test(`${subject} ${body}`)
+  const gaps = p.explanation.draft_gaps || []
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -34,14 +38,15 @@ export default function ProspectPanel({ p, onClose, onSave }) {
 
   return (
     <div className="anim-fade fixed inset-0 z-[60] flex justify-end bg-black/65" onClick={onClose}>
-      <div className="anim-slide flex h-full w-full max-w-[640px] flex-col border-l border-line bg-bg" onClick={(e) => e.stopPropagation()}>
+      <div className="anim-slide flex h-full w-full max-w-[640px] flex-col border-l border-signal/15 bg-bg/90 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-6 py-3.5">
           <Label>Prospect · #{p.id}</Label>
           <button onClick={onClose} className="font-mono text-[11px] text-dim transition-colors hover:text-fg">ESC ✕</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 pb-4 pt-7">
-          <div className="flex items-start justify-between gap-6">
+        <div className="relative flex-1 overflow-y-auto px-6 pb-4 pt-7">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgb(255_106_44/0.12),transparent)]" />
+          <div className="relative flex items-start justify-between gap-6">
             <div className="min-w-0">
               <h2 className="text-3xl font-medium leading-tight tracking-[-0.03em]">{per.name}</h2>
               <p className="mt-1.5 text-[15px] text-mute">{per.title || 'Title unavailable'} <span className="text-dim">·</span> {co.name}</p>
@@ -108,8 +113,18 @@ export default function ProspectPanel({ p, onClose, onSave }) {
 
             <Section title="Outreach draft" tag={p.explanation.draft_hooks?.length ? `Personalized · ${p.explanation.draft_hooks.join(', ')}` : 'Generic opener'}>
               <input className="field text-base font-medium" value={subject} onChange={(e) => setSubject(e.target.value)} />
-              <textarea className="mt-4 min-h-60 w-full resize-y rounded-2xl border border-line bg-panel p-4 font-mono text-[13px] leading-relaxed text-fg outline-none transition-colors focus:border-white/25"
+              <textarea className="mt-4 min-h-80 w-full resize-y rounded-2xl border border-line bg-panel p-4 font-mono text-[13px] leading-relaxed text-fg outline-none transition-colors focus:border-signal/40"
                 value={body} onChange={(e) => setBody(e.target.value)} />
+              {unresolved && (
+                <p className="mt-3 border-l-2 border-alert pl-3 text-[13px] text-alert">
+                  This draft still has [placeholders] for details the campaign did not include. Fill them in before approving.
+                </p>
+              )}
+              {gaps.length > 0 && (
+                <p className="mt-3 font-mono text-[11px] leading-relaxed text-dim">
+                  Not in this draft: {gaps.join(', ').toLowerCase()}. Nothing was invented to fill the gap. Add it by hand, or include it in the next campaign.
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap gap-5 text-[13px]">
                 {per.profile_url && <a className="text-mute underline decoration-white/20 underline-offset-4 hover:text-fg" href={per.profile_url} target="_blank" rel="noreferrer">LinkedIn ↗</a>}
                 {co.website && <a className="text-mute underline decoration-white/20 underline-offset-4 hover:text-fg" href={co.website} target="_blank" rel="noreferrer">{co.domain || 'Company site'} ↗</a>}
@@ -123,7 +138,7 @@ export default function ProspectPanel({ p, onClose, onSave }) {
           <div className="flex gap-2">
             {dirty && <button className="pill-line" disabled={saving} onClick={() => act(p.approval)}>Save edits</button>}
             <button className="pill-line" disabled={saving || p.approval === 'rejected'} onClick={() => act('rejected')}>Reject</button>
-            <button className="pill-solid" disabled={saving || (p.approval === 'approved' && !dirty)} onClick={() => act('approved')}>Approve draft</button>
+            <button className="pill-solid" disabled={saving || unresolved || (p.approval === 'approved' && !dirty)} onClick={() => act('approved')}>Approve draft</button>
           </div>
         </div>
       </div>

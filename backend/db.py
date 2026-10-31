@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS api_cache (
 );
 CREATE TABLE IF NOT EXISTS campaigns (
   id INTEGER PRIMARY KEY AUTOINCREMENT, prompt TEXT, icp_json TEXT,
-  status TEXT, error TEXT, created_at TEXT, updated_at TEXT
+  status TEXT, error TEXT, created_at TEXT, updated_at TEXT, context_json TEXT
 );
 CREATE TABLE IF NOT EXISTS steps (
   id INTEGER PRIMARY KEY AUTOINCREMENT, campaign_id INTEGER, name TEXT,
@@ -44,6 +44,9 @@ def conn():
 def init():
     with conn() as c:
         c.executescript(SCHEMA)
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(campaigns)")]
+        if "context_json" not in cols:  # databases created before outreach context existed
+            c.execute("ALTER TABLE campaigns ADD COLUMN context_json TEXT")
 
 
 def cache_get(key):

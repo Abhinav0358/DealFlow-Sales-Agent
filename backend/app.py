@@ -12,6 +12,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 import db  # noqa: E402
 import icp as icp_mod  # noqa: E402
 import pipeline  # noqa: E402
+import scoring  # noqa: E402
 
 app = Flask(__name__)
 CORS(app)
@@ -40,6 +41,7 @@ def _campaign(cid):
     return {
         "id": camp["id"], "prompt": camp["prompt"], "status": camp["status"], "error": camp["error"],
         "icp": json.loads(camp["icp_json"]) if camp["icp_json"] else None,
+        "context": json.loads(camp["context_json"]) if camp["context_json"] else None,
         "created_at": camp["created_at"], "steps": [dict(s) for s in steps],
         "companies_count": len(comps), "prospects": prospects,
     }
@@ -54,7 +56,7 @@ def health():
 @app.post("/api/parse")
 def parse():
     body = request.get_json(force=True)
-    return jsonify(icp_mod.parse(body.get("prompt", ""), body.get("offering", "")))
+    return jsonify(icp_mod.parse(body.get("prompt", "")))
 
 
 @app.get("/api/campaigns")
@@ -74,8 +76,12 @@ def create_campaign():
     prompt = (body.get("prompt") or "").strip()
     if not prompt:
         return jsonify(error="prompt is required"), 400
+    ctx = scoring.clean_context(body.get("context"))
+    missing = [label for k, label in scoring.REQUIRED_CONTEXT.items() if not ctx[k]]
+    if missing:
+        return jsonify(error="Missing outreach context: " + ", ".join(missing), missing=missing), 400
     n = max(1, min(int(body.get("max_companies") or 10), 25))
-    cid = pipeline.start(prompt, body.get("offering", ""), body.get("sender", ""), n)
+    cid = pipeline.start(prompt, ctx, n)
     return jsonify(id=cid), 201
 
 

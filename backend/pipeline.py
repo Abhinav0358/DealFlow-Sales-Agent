@@ -101,7 +101,7 @@ def norm_person(raw, company_ids=()):
     }
 
 
-def run(cid, prompt, offering, sender, max_companies):
+def run(cid, prompt, ctx, max_companies):
     try:
         set_status(cid, "running")
         for s in STEPS:
@@ -109,7 +109,7 @@ def run(cid, prompt, offering, sender, max_companies):
 
         # 1. Interpret
         log(cid, STEPS[0], "running")
-        icp = icp_mod.parse(prompt, offering)
+        icp = icp_mod.parse(prompt)
         with db.conn() as c:
             c.execute("UPDATE campaigns SET icp_json=? WHERE id=?", (json.dumps(icp), cid))
         log(cid, STEPS[0], "done", f'{len(icp["titles"])} target roles; query "{icp["company_query"]}"')
@@ -203,8 +203,10 @@ def run(cid, prompt, offering, sender, max_companies):
         src = "Crustdata Person Search (cached)" if pcached else "Crustdata Person Search"
         with db.conn() as c:
             for p, co, raw, total, tier, breakdown, exp in rows:
-                subj, body, hooks = scoring.draft(p, co, icp, sender)
-                exp["draft_hooks"] = hooks
+                subj, body, meta = scoring.draft(p, co, ctx)
+                exp["draft_hooks"] = meta["hooks"]
+                exp["draft_missing"] = meta["missing_required"]
+                exp["draft_gaps"] = meta["missing_optional"]
                 p["tier"] = tier
                 c.execute(
                     "INSERT INTO prospects (campaign_id,company_id,data_json,raw_json,score,breakdown_json,"
@@ -228,10 +230,11 @@ def _fail(cid, msg):
     set_status(cid, "error", msg)
 
 
-def start(prompt, offering="", sender="", max_companies=10):
+def start(prompt, ctx, max_companies=10):
+    ctx = scoring.clean_context(ctx)
     with db.conn() as c:
-        cur = c.execute("INSERT INTO campaigns (prompt,status,created_at,updated_at) VALUES (?,?,?,?)",
-                        (prompt, "queued", db.now(), db.now()))
+        cur = c.execute("INSERT INTO campaigns (prompt,status,created_at,updated_at,context_json) VALUES (?,?,?,?,?)",
+                        (prompt, "queued", db.now(), db.now(), json.dumps(ctx)))
         cid = cur.lastrowid
-    threading.Thread(target=run, args=(cid, prompt, offering, sender, max_companies), daemon=True).start()
+    threading.Thread(target=run, args=(cid, prompt, ctx, max_companies), daemon=True).start()
     return cid
