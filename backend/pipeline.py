@@ -58,7 +58,10 @@ def norm_company(raw, rank):
         "website": _g(raw, "basic_info.website") or (f"https://{domain}" if domain else None),
         "source_url": url,
         "year_founded": _g(raw, "basic_info.year_founded"),
-        "industry": _first(_g(raw, "taxonomy.professional_network_industry")) or _first(_g(raw, "basic_info.industries")),
+        "industry": _first(_g(raw, "taxonomy.professional_network_industry")) or _first(_g(raw, "taxonomy.professional_network_industries")),
+        "description": _g(raw, "basic_info.description"),
+        "employee_count_range": _g(raw, "basic_info.employee_count_range"),
+        "updated_at": _g(raw, "metadata.updated_at"),
         "country": _first(_g(raw, "locations.country")),
         "hq": hq if isinstance(hq, str) else None,
         "headcount": _g(raw, "headcount.total"),
@@ -70,9 +73,11 @@ def norm_company(raw, rank):
     }
 
 
-def norm_person(raw):
-    cur = _g(raw, "experience.employment_details.current")
-    cur = _first(cur) if isinstance(cur, list) else (cur or {})
+def norm_person(raw, company_ids=()):
+    cur = _g(raw, "experience.employment_details.current") or {}
+    if isinstance(cur, list):  # people can hold several current roles; prefer the one at a target company
+        cur = next((x for x in cur if isinstance(x, dict) and x.get("crustdata_company_id") in company_ids),
+                   _first(cur) or {})
     past = _g(raw, "experience.employment_details.past") or []
     if isinstance(past, dict):
         past = [past]
@@ -89,7 +94,8 @@ def norm_person(raw):
         "company_name": cur.get("name"),
         "company_id": cur.get("crustdata_company_id"),
         "seniority": cur.get("seniority_level"),
-        "start_date": cur.get("start_date"),
+        "start_date": str(cur["start_date"])[:10] if cur.get("start_date") else None,
+        "updated_at": _g(raw, "metadata.updated_at"),
         "past_roles": [f'{p.get("title")} at {p.get("name")}' for p in past
                        if isinstance(p, dict) and p.get("title") and p.get("name")],
     }
@@ -110,16 +116,27 @@ def run(cid, prompt, offering, sender, max_companies):
 
         # 2. Discover companies
         log(cid, STEPS[1], "running", "Querying Crustdata Company Search…")
-        filters = icp_mod.company_filters(icp)
-        note = ""
-        try:
-            res, cached = crustdata.search_companies(icp["company_query"], filters, limit=max_companies)
-        except crustdata.CrustdataError as e:
-            if e.status != 400 or not filters:
+        # Progressive relaxation: all filters -> without funding round -> ranked query only.
+        attempts = [(icp_mod.company_filters(icp), "")]
+        if icp.get("round_types"):
+            attempts.append((icp_mod.company_filters(icp, with_rounds=False), " (no matches with funding-round filter; relaxed it)"))
+        if attempts[-1][0]:
+            attempts.append((None, " (no matches with hard filters; using ranked search only)"))
+        raws, cached, note = [], False, ""
+        for filters, why in attempts:
+            try:
+                res, cached = crustdata.search_companies(icp["company_query"], filters, limit=max_companies)
+            except crustdata.CrustdataError as e:
+                # Only a filter-related 400 justifies dropping filters; auth/permission/field errors must surface.
+                msg = e.message.lower()
+                if e.status == 400 and filters and ("condition" in msg or "filter" in msg):
+                    note = f" (filter rejected by API: {e.message[:120]})"
+                    continue
                 raise
-            res, cached = crustdata.search_companies(icp["company_query"], None, limit=max_companies)
-            note = " (hard filters rejected by API; retried with ranked search only)"
-        raws = res.get("companies") or []
+            raws = res.get("companies") or []
+            if raws:
+                note = note or why
+                break
         companies = {}
         fetched = db.now()
         with db.conn() as c:
@@ -160,7 +177,7 @@ def run(cid, prompt, offering, sender, max_companies):
         log(cid, STEPS[3], "running")
         per_company, people, skipped = {}, [], 0
         for raw in profiles:
-            p = norm_person(raw)
+            p = norm_person(raw, companies.keys())
             co = companies.get(p["company_id"])
             if not co or not p["name"]:
                 skipped += 1

@@ -37,11 +37,24 @@ SENIORITY_FOR_TITLE = [
     (r"head|director", ["Director", "Vice President"]),
 ]
 
+# Filter values verified via /company/search/autocomplete on locations.country (2026-10-31).
 COUNTRIES = {
-    r"\b(us|usa|u\.s\.a?\.?|united states|america|american)\b": ("USA", "United States"),
+    r"\b(us|usa|u\.s\.a?\.?|united states|america|american)\b": (["United States", "United States of America"], "United States"),
+    r"\b(uk|u\.k\.|united kingdom|britain|british|england)\b": (["United Kingdom"], "United Kingdom"),
+    r"\b(germany|german)\b": (["Germany"], "Germany"),
+    r"\b(india|indian)\b": (["India"], "India"),
+    r"\b(canada|canadian)\b": (["Canada"], "Canada"),
+    r"\b(france|french)\b": (["France"], "France"),
+    r"\b(israel|israeli)\b": (["Israel"], "Israel"),
+    r"\b(singapore)\b": (["Singapore"], "Singapore"),
+    r"\b(australia|australian)\b": (["Australia"], "Australia"),
+    r"\b(netherlands|dutch)\b": (["Netherlands"], "Netherlands"),
 }
-# Non-USA geographies stay in the ranked-search query text (Crustdata ranks on them) rather than
-# a hard filter whose exact value format we haven't verified.
+
+# funding.last_round_type values verified via autocomplete.
+ROUND_TYPES = {"pre-seed": "pre_seed", "preseed": "pre_seed", "seed": "seed", "series a": "series_a",
+               "series b": "series_b", "series c": "series_c", "series d": "series_d",
+               "series e": "series_e", "series f": "series_f"}
 
 SIZE_BUCKETS = [
     (r"\bearly[- ]stage|\bstartups?\b|small (companies|teams)", (None, 200)),
@@ -108,11 +121,15 @@ def parse(prompt: str, offering: str = "") -> dict:
 
     fm = re.search(FUNDING, low)
     funding_signal = fm.group(1) if fm else None
+    round_types = [v for k, v in ROUND_TYPES.items() if re.search(r"\b" + k + r"\b", low)]
+    round_types = list(dict.fromkeys(round_types))
 
     # Company query for Crustdata hybrid ranking: drop persona/role words and size phrases.
     q = low
     for pat in STRIP + list(PERSONAS.keys()):
         q = re.sub(pat, " ", q)
+    if round_types:
+        q = re.sub(r"\b(pre-?seed|seed|series [a-f])\b( stage| funded)?", " ", q)
     if country:
         for pat in COUNTRIES:
             q = re.sub(pat, " ", q)
@@ -130,15 +147,18 @@ def parse(prompt: str, offering: str = "") -> dict:
         "headcount_min": hc_min,
         "headcount_max": hc_max,
         "funding_signal": funding_signal,
+        "round_types": round_types,
         "offering": offering.strip(),
         "notes": notes,
     }
 
 
-def company_filters(icp):
+def company_filters(icp, with_rounds=True):
     conds = []
     if icp.get("country"):
-        conds.append({"field": "locations.country", "type": "=", "value": icp["country"]["filter"]})
+        conds.append({"field": "locations.country", "type": "in", "value": icp["country"]["filter"]})
+    if with_rounds and icp.get("round_types"):
+        conds.append({"field": "funding.last_round_type", "type": "in", "value": icp["round_types"]})
     if icp.get("headcount_min") is not None:
         conds.append({"field": "headcount.total", "type": ">", "value": icp["headcount_min"] - 1})
     if icp.get("headcount_max") is not None:

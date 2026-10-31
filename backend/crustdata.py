@@ -13,12 +13,34 @@ BASE_URL = "https://api.crustdata.com"
 API_VERSION = "2025-11-01"
 
 
+KIND = {400: "invalid request (schema/filter)", 401: "authentication failed (check API key)",
+        403: "permission denied or insufficient credits", 429: "rate limited"}
+
+
 class CrustdataError(Exception):
     def __init__(self, status, message):
-        super().__init__(f"Crustdata {status}: {message}")
         self.status = status
+        self.kind = KIND.get(status, "server error" if status >= 500 else "network error" if status == 0 else "error")
+        self.message = message
+        super().__init__(f"Crustdata {status} ({self.kind}): {message}")
 
 
+def _error_message(r):
+    """Company API nests {error:{message}}, 401s use top-level message, Person API may use reason."""
+    try:
+        d = r.json()
+    except ValueError:
+        return r.text[:500]
+    err = d.get("error") if isinstance(d, dict) else None
+    if isinstance(err, dict):
+        return err.get("message") or err.get("reason") or str(err)[:500]
+    if isinstance(d, dict):
+        return d.get("message") or d.get("reason") or d.get("description") or err or str(d)[:500]
+    return str(d)[:500]
+
+
+# Every field below is listed as enabled for our key by GET /account/endpoints (verified 2026-10-31).
+# basic_info.industries is filter-only; industry is returned via taxonomy.professional_network_industries.
 COMPANY_FIELDS = [
     "crustdata_company_id",
     "basic_info.name",
@@ -26,8 +48,10 @@ COMPANY_FIELDS = [
     "basic_info.website",
     "basic_info.professional_network_url",
     "basic_info.year_founded",
-    "basic_info.industries",
+    "basic_info.description",
+    "basic_info.employee_count_range",
     "taxonomy.professional_network_industry",
+    "taxonomy.professional_network_industries",
     "locations.country",
     "locations.headquarters",
     "headcount.total",
@@ -36,6 +60,7 @@ COMPANY_FIELDS = [
     "funding.last_round_type",
     "funding.last_round_amount_usd",
     "funding.last_fundraise_date",
+    "metadata.updated_at",
 ]
 
 PERSON_FIELDS = [
@@ -52,6 +77,7 @@ PERSON_FIELDS = [
     "experience.employment_details.current.start_date",
     "experience.employment_details.past.title",
     "experience.employment_details.past.name",
+    "metadata.updated_at",
 ]
 
 
@@ -85,12 +111,12 @@ def _post(path, body, use_cache=True):
             continue
         if r.status_code == 429 or r.status_code >= 500:
             if attempt == 4:
-                raise CrustdataError(r.status_code, r.text[:300])
+                raise CrustdataError(r.status_code, _error_message(r))
             time.sleep(float(r.headers.get("retry-after", delay)))
             delay *= 2
             continue
         if not r.ok:
-            raise CrustdataError(r.status_code, r.text[:500])
+            raise CrustdataError(r.status_code, _error_message(r))
         data = r.json()
         db.cache_put(key, path, data)
         return data, False

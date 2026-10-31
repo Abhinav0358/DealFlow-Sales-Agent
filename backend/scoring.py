@@ -6,7 +6,7 @@ records; inferences are labelled as such and name the fact they are based on.
 import re
 from datetime import date, datetime
 
-TIERS = [(70, "Hot"), (50, "Warm"), (0, "Cold")]
+TIERS = [(80, "Hot"), (60, "Warm"), (0, "Cold")]
 SENIORITY_PTS = {"cxo": 20, "owner / partner": 20, "vice president": 16, "director": 12,
                  "experienced manager": 6, "strategic": 6}
 
@@ -43,10 +43,18 @@ def score(person, company, icp, n_companies):
         items.append({"criterion": name, "points": round(pts, 1), "max": max_pts,
                       "reason": reason, "field": field})
 
-    title = (person.get("title") or "").lower()
-    matched = next((t for t in icp["titles"] if all(w in title for w in t.lower().split())), None)
-    if matched:
-        add("Role match", 30, 30, f'Current title "{person["title"]}" matches target role "{matched}".',
+    def toks(s):  # whole words minus filler, so "CTO" never matches "Director" and "VP of Eng" == "VP Eng"
+        return [w for w in re.findall(r"[a-z]+", s.lower()) if w not in ("of", "and", "the", "for")]
+
+    norm_title = f' {" ".join(toks(person.get("title") or ""))} '
+    words = set(norm_title.split())
+    exact = next((t for t in icp["titles"] if f' {" ".join(toks(t))} ' in norm_title), None)
+    loose = next((t for t in icp["titles"] if set(toks(t)) <= words), None)
+    if exact:
+        add("Role match", 30, 30, f'Current title "{person["title"]}" matches target role "{exact}".',
+            "experience.employment_details.current.title")
+    elif loose:
+        add("Role match", 18, 30, f'Title "{person["title"]}" contains the words of "{loose}" but is a variant role.',
             "experience.employment_details.current.title")
     elif person.get("title"):
         add("Role match", 10, 30, f'Title "{person["title"]}" is a related leadership role, not an exact target match.',
@@ -117,6 +125,9 @@ def explain(person, company, icp):
     if person.get("past_roles"):
         fact("Previous roles", "; ".join(person["past_roles"][:3]), "experience.employment_details.past", p_src)
     fact("Company", company.get("name"), "basic_info.name", c_src)
+    if company.get("description"):
+        d = company["description"]
+        fact("About", d if len(d) <= 220 else d[:217].rsplit(" ", 1)[0] + "…", "basic_info.description", c_src)
     fact("Industry", company.get("industry"), "taxonomy.professional_network_industry", c_src)
     fact("Headcount", f'{company["headcount"]:,}' if company.get("headcount") is not None else None,
          "headcount.total", c_src)
@@ -125,8 +136,11 @@ def explain(person, company, icp):
     fact("HQ", company.get("hq") or company.get("country"), "locations.headquarters", c_src)
     if company.get("total_funding"):
         fact("Total funding", f'${company["total_funding"]:,.0f}', "funding.total_investment_usd", c_src)
-    fact("Last round", company.get("last_round_type"), "funding.last_round_type", c_src)
+    rnd = company.get("last_round_type")
+    fact("Last round", rnd.replace("_", " ").title() if isinstance(rnd, str) else rnd, "funding.last_round_type", c_src)
     fact("Last fundraise", company.get("last_fundraise_date"), "funding.last_fundraise_date", c_src)
+    fact("Profile updated (Crustdata)", person.get("updated_at"), "metadata.updated_at", p_src)
+    fact("Company updated (Crustdata)", company.get("updated_at"), "metadata.updated_at", c_src)
 
     inferences = []
     tenure = _months_since(_date(person.get("start_date")))

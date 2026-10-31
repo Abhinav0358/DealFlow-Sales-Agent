@@ -33,7 +33,7 @@ function Stat({ label, value, sub }) {
 }
 
 function ScoreRing({ score }) {
-  const color = score >= 70 ? '#fb7185' : score >= 50 ? '#fbbf24' : '#38bdf8'
+  const color = score >= 80 ? '#fb7185' : score >= 60 ? '#fbbf24' : '#38bdf8'
   return (
     <div className="relative grid h-10 w-10 place-items-center">
       <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90">
@@ -246,7 +246,7 @@ export default function Campaign({ id, onChange }) {
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Stat label="Companies" value={c.companies_count} sub="via Crustdata" />
         <Stat label="Prospects" value={ps.length} sub="decision-makers" />
-        <Stat label="Hot" value={count('Hot')} sub="score ≥ 70" />
+        <Stat label="Hot" value={count('Hot')} sub="score ≥ 80" />
         <Stat label="Avg score" value={ps.length ? avg : '—'} sub="out of 100" />
         <Stat label="Approved" value={approved} sub={`of ${ps.length} drafts`} />
       </div>
