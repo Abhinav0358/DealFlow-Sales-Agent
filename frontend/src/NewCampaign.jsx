@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
+import { Label, Tag } from './ui'
 
 const EXAMPLES = [
   'CTOs and VP Engineering at Series B fintech startups in the US with 50-500 employees',
@@ -7,12 +8,13 @@ const EXAMPLES = [
   'Founders of AI developer tools startups in the US with under 200 employees',
 ]
 
-function Chip({ children, tone = 'slate' }) {
-  const tones = {
-    slate: 'border-white/10 bg-white/[0.03] text-slate-300',
-    indigo: 'border-indigo-400/20 bg-indigo-400/10 text-indigo-200',
-  }
-  return <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${tones[tone]}`}>{children}</span>
+function Row({ label, children }) {
+  return (
+    <div className="border-t border-line py-4 first:border-t-0 first:pt-0">
+      <Label>{label}</Label>
+      <div className="mt-2 text-[15px] text-fg">{children}</div>
+    </div>
+  )
 }
 
 export default function NewCampaign({ onCreated, health }) {
@@ -43,95 +45,88 @@ export default function NewCampaign({ onCreated, health }) {
     ? `${icp.headcount_min ?? 0}–${icp.headcount_max ?? '∞'} employees` : null
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10 lg:px-10">
-      <div className="label text-indigo-300/80">New campaign</div>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Who do you want to reach?</h1>
-      <p className="mt-2 max-w-2xl text-sm text-slate-400">
-        Describe your ideal customer in plain English. DealFlow discovers matching companies and decision-makers
-        through Crustdata, scores every prospect with a transparent breakdown, and prepares outreach drafts for your approval.
-      </p>
+    <div className="mx-auto max-w-[1200px] px-5 py-10 md:px-10 md:py-16">
+      <Label>New campaign</Label>
+      <h1 className="mt-5 max-w-4xl text-[2.5rem] font-medium leading-[1.04] tracking-[-0.035em] text-fg md:text-6xl">
+        Who do you want to reach?
+        <span className="block text-dim">We find them, score them, and draft the note.</span>
+      </h1>
 
-      <form onSubmit={submit} className="mt-8 grid gap-6 lg:grid-cols-5">
-        <div className="card space-y-5 p-6 lg:col-span-3">
+      <form onSubmit={submit} className="mt-14 grid gap-14 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-20">
+        <div className="space-y-10">
           <div>
-            <label className="label">Prospecting request</label>
-            <textarea className="input mt-2 min-h-28 resize-y text-[15px] leading-relaxed" value={prompt}
-              onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. CTOs at Series B fintech startups in the US with 50-500 employees" />
-            <div className="mt-2 flex flex-wrap gap-2">
+            <Label>Prospecting request</Label>
+            <textarea className="field mt-2 min-h-28 resize-none text-2xl leading-snug tracking-[-0.01em]" rows={3} value={prompt}
+              onChange={(e) => setPrompt(e.target.value)} placeholder="CTOs at Series B fintech startups in the US…" />
+            <ul className="mt-4 space-y-1.5">
               {EXAMPLES.map((x) => (
-                <button type="button" key={x} onClick={() => setPrompt(x)}
-                  className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-1 text-left text-[11px] text-slate-400 hover:border-indigo-400/30 hover:text-slate-200">{x}</button>
+                <li key={x}>
+                  <button type="button" onClick={() => setPrompt(x)}
+                    className="group flex w-full items-baseline gap-3 text-left font-mono text-xs text-dim transition-colors hover:text-fg">
+                    <span className="text-dim transition-transform group-hover:translate-x-0.5 group-hover:text-signal">→</span>{x}
+                  </button>
+                </li>
               ))}
+            </ul>
+          </div>
+
+          <div className="grid gap-8 sm:grid-cols-2">
+            <div>
+              <Label>What you're offering</Label>
+              <input className="field mt-1" value={offering} onChange={(e) => setOffering(e.target.value)} placeholder="an AI code-review platform" />
+            </div>
+            <div>
+              <Label>Sender name</Label>
+              <input className="field mt-1" value={sender} onChange={(e) => setSender(e.target.value)} placeholder="Alex from Acme" />
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label">What you're offering</label>
-              <input className="input mt-2" value={offering} onChange={(e) => setOffering(e.target.value)} placeholder="e.g. an AI code-review platform" />
-            </div>
-            <div>
-              <label className="label">Sender name</label>
-              <input className="input mt-2" value={sender} onChange={(e) => setSender(e.target.value)} placeholder="e.g. Alex from Acme" />
-            </div>
-          </div>
+
           <div>
-            <div className="flex items-center justify-between">
-              <label className="label">Companies to research</label>
-              <span className="text-xs tabular-nums text-slate-400">{maxCompanies}</span>
+            <div className="flex items-baseline justify-between">
+              <Label>Companies to research</Label>
+              <span className="font-mono text-sm tabular-nums text-fg">{maxCompanies}</span>
             </div>
             <input type="range" min="3" max="25" value={maxCompanies} onChange={(e) => setMaxCompanies(+e.target.value)}
-              className="mt-2 w-full accent-indigo-500" />
-            <p className="mt-1 text-[11px] text-slate-500">Up to 3 decision-makers per company. Repeated queries are served from cache and use no extra credits.</p>
+              className="mt-3 w-full accent-[#c9f24a]" />
+            <p className="mt-2 text-[13px] text-dim">Up to 3 decision-makers per company. Repeated queries are served from cache and use no extra credits.</p>
           </div>
-          {err && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{err}</div>}
+
+          {err && <p className="border-l-2 border-alert pl-3 text-sm text-alert">{err}</p>}
           {health && !health.crustdata_key && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-              Crustdata API key missing. Add <code>CRUSTDATA_API_KEY</code> to <code>backend/.env</code> and restart the backend.
-            </div>
+            <p className="border-l-2 border-alert pl-3 text-sm text-alert">
+              Crustdata API key missing. Add <code className="font-mono">CRUSTDATA_API_KEY</code> to <code className="font-mono">backend/.env</code>.
+            </p>
           )}
-          <button className="btn-primary w-full py-2.5" disabled={!prompt.trim() || busy}>
+
+          <button className="pill-solid px-7 py-3 text-[15px]" disabled={!prompt.trim() || busy}>
             {busy ? 'Launching agent…' : 'Run prospecting agent →'}
           </button>
         </div>
 
-        <div className="card p-6 lg:col-span-2">
-          <div className="label">Interpreted ICP</div>
+        <aside className="self-start rounded-3xl border border-line bg-panel p-7 lg:sticky lg:top-10">
+          <div className="flex items-center justify-between">
+            <Label>Interpreted ICP</Label>
+            <Label className={icp ? 'text-signal' : 'text-dim'}>{icp ? '● Live' : 'Waiting'}</Label>
+          </div>
           {!icp ? (
-            <p className="mt-4 text-sm text-slate-500">Start typing to see how DealFlow interprets your request.</p>
+            <p className="mt-6 text-sm leading-relaxed text-dim">Start typing and DealFlow shows exactly how it reads your request before any credits are spent.</p>
           ) : (
-            <dl className="mt-4 space-y-4 text-sm">
-              <div>
-                <dt className="text-xs text-slate-500">Company search query</dt>
-                <dd className="mt-1 font-medium text-slate-100">"{icp.company_query}"</dd>
+            <div className="mt-6">
+              <Row label="Company query"><span className="text-xl tracking-tight">“{icp.company_query}”</span></Row>
+              <Row label="Target roles"><div className="flex flex-wrap gap-1.5">{icp.titles.map((t) => <Tag key={t}>{t}</Tag>)}</div></Row>
+              <div className="grid grid-cols-2 gap-6 border-t border-line pt-4">
+                <div><Label>Geography</Label><div className="mt-2 text-[15px]">{icp.country?.label || <span className="text-mute">Any</span>}</div></div>
+                <div><Label>Company size</Label><div className="mt-2 font-mono text-[14px]">{hc || <span className="font-sans text-[15px] text-mute">Any</span>}</div></div>
               </div>
-              <div>
-                <dt className="text-xs text-slate-500">Target roles</dt>
-                <dd className="mt-1.5 flex flex-wrap gap-1.5">{icp.titles.map((t) => <Chip key={t} tone="indigo">{t}</Chip>)}</dd>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <dt className="text-xs text-slate-500">Geography</dt>
-                  <dd className="mt-1 text-slate-200">{icp.country?.label || 'Any (ranked by query)'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Company size</dt>
-                  <dd className="mt-1 text-slate-200">{hc || 'Any'}</dd>
-                </div>
-              </div>
-              {icp.funding_signal && (
-                <div>
-                  <dt className="text-xs text-slate-500">Funding signal</dt>
-                  <dd className="mt-1 capitalize text-slate-200">{icp.funding_signal}</dd>
-                </div>
-              )}
+              {icp.funding_signal && <div className="mt-4 border-t border-line pt-4"><Label>Funding signal</Label><div className="mt-2 text-[15px] capitalize">{icp.funding_signal}</div></div>}
               {icp.notes.length > 0 && (
-                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-slate-400">
-                  {icp.notes.map((n) => <div key={n}>• {n}</div>)}
+                <div className="mt-4 space-y-1 border-t border-line pt-4 text-[13px] text-mute">
+                  {icp.notes.map((n) => <p key={n}>{n}</p>)}
                 </div>
               )}
-            </dl>
+            </div>
           )}
-        </div>
+        </aside>
       </form>
     </div>
   )
