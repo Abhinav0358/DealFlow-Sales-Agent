@@ -174,8 +174,8 @@ export default function Campaign({ id, onChange }) {
           <tbody>
             {rows.map((p) => (
               <tr key={p.id} onClick={() => setOpenId(p.id)}
-                className={`group cursor-pointer border-t border-line transition-colors duration-200 ${openId === p.id ? 'bg-signal/[0.06]' : 'hover:bg-signal/[0.035]'}`}>
-                <td className={`w-32 py-4 pl-3 pr-4 transition-shadow duration-200 ${openId === p.id ? 'shadow-[inset_2px_0_0_0_#ff6a2c]' : 'group-hover:shadow-[inset_2px_0_0_0_rgb(255_106_44/0.5)]'}`}>
+                className={`group cursor-pointer border-t border-line transition-colors duration-200 ${openId === p.id ? 'bg-signal/[0.06]' : 'hover:bg-signal/[0.065]'}`}>
+                <td className={`w-32 py-4 pl-3 pr-4 transition-shadow duration-200 ${openId === p.id ? 'shadow-[inset_2px_0_0_0_#ff6a2c]' : 'group-hover:shadow-[inset_2px_0_0_0_rgb(255_106_44/0.55)]'}`}>
                   <div className="flex items-center gap-3">
                     <span className="w-9 font-mono text-2xl font-medium tabular-nums tracking-tight">{Math.round(p.score)}</span>
                     <TierDot tier={p.person.tier} />

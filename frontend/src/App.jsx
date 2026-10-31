@@ -64,12 +64,12 @@ export default function App() {
         {slim ? (
           <div className="flex flex-col items-center gap-3 py-5">
             <Wordmark slim />
-            <button onClick={toggle} title="Expand sidebar ( [ )" className="grid h-8 w-8 place-items-center rounded-md text-dim transition-colors hover:bg-white/[0.05] hover:text-fg"><PanelIcon /></button>
+            <button onClick={toggle} title="Expand sidebar ( [ )" className="grid h-8 w-8 place-items-center rounded-md text-dim transition-colors hover:bg-white/[0.08] hover:text-fg"><PanelIcon /></button>
           </div>
         ) : (
           <div className="flex h-16 items-center justify-between px-5">
             <Wordmark />
-            <button onClick={toggle} title="Collapse sidebar ( [ )" className="hidden h-8 w-8 place-items-center rounded-md text-dim transition-colors hover:bg-white/[0.05] hover:text-fg md:grid"><PanelIcon /></button>
+            <button onClick={toggle} title="Collapse sidebar ( [ )" className="hidden h-8 w-8 place-items-center rounded-md text-dim transition-colors hover:bg-white/[0.08] hover:text-fg md:grid"><PanelIcon /></button>
           </div>
         )}
 
@@ -86,13 +86,13 @@ export default function App() {
             const active = view.id === c.id
             return slim ? (
               <button key={c.id} title={c.prompt} onClick={() => go({ page: 'campaign', id: c.id })}
-                className={`flex w-full flex-col items-center gap-1.5 border-b border-line py-3 transition-colors hover:bg-signal/[0.04] ${active ? 'bg-signal/[0.07] shadow-[inset_2px_0_0_0_#ff6a2c]' : ''}`}>
+                className={`flex w-full flex-col items-center gap-1.5 border-b border-line py-3 transition-colors hover:bg-signal/[0.07] ${active ? 'bg-signal/[0.07] shadow-[inset_2px_0_0_0_#ff6a2c]' : ''}`}>
                 <StatusDot status={c.status} />
                 <span className="font-mono text-[11px] text-mute">{pad(c.id)}</span>
               </button>
             ) : (
               <button key={c.id} onClick={() => go({ page: 'campaign', id: c.id })}
-                className={`block w-full border-b border-line px-5 py-3.5 text-left transition-all duration-200 hover:bg-signal/[0.04] hover:shadow-[inset_2px_0_0_0_rgb(255_106_44/0.4)] ${active ? 'bg-signal/[0.07] shadow-[inset_2px_0_0_0_#ff6a2c]' : ''}`}>
+                className={`block w-full border-b border-line px-5 py-3.5 text-left transition-all duration-200 hover:bg-signal/[0.07] hover:shadow-[inset_2px_0_0_0_rgb(255_106_44/0.45)] ${active ? 'bg-signal/[0.07] shadow-[inset_2px_0_0_0_#ff6a2c]' : ''}`}>
                 <div className="flex items-center gap-2"><StatusDot status={c.status} /><span className="label text-dim">#{pad(c.id)}</span></div>
                 <div className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-fg/90">{c.prompt}</div>
                 <div className="mt-1.5 font-mono text-[11px] text-dim">{c.prospects} prospects · {c.approved} approved</div>
@@ -119,7 +119,7 @@ export default function App() {
       <div className="relative isolate flex min-w-0 flex-1 flex-col" onPointerMove={onMove} onPointerLeave={onLeave}>
         <div ref={glow} className="spotlight" />
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-5 md:hidden">
-          <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="grid h-8 w-8 place-items-center rounded-md text-mute hover:bg-white/[0.05]"><PanelIcon /></button>
+          <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="grid h-8 w-8 place-items-center rounded-md text-mute hover:bg-white/[0.08]"><PanelIcon /></button>
           <Wordmark />
         </header>
         <main className="min-w-0 flex-1 overflow-y-auto">

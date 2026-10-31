@@ -20,12 +20,44 @@ const CONTEXT_FIELDS = [
     placeholder: 'Only claims you can stand behind. Used as written.' },
   { key: 'cta', label: 'Call to action', required: true, kind: 'input', wide: true, placeholder: 'What should they do next?' },
 ]
-const REMEMBERED = ['sender_name', 'sender_company', 'company_description']
+const STORAGE_KEY = 'df.context'
+// Editable starting points, one per prospecting example above. They fill the outreach fields only: your own
+// name and company are never touched. Wording is deliberately plain; edit it to claims you can stand behind.
+const PRESETS = [
+  {
+    label: 'Code review platform', audience: 'CTOs · Series B fintech', matches: EXAMPLES[0],
+    fields: {
+      company_description: 'We build an AI-powered code review platform for engineering teams.',
+      offering: 'We offer an AI-powered code review platform that reviews pull requests and flags issues for engineers to act on.',
+      relevance: 'Engineering teams that are growing quickly often find pull request review becomes a bottleneck.',
+      cta: 'Would you be open to a 20-minute call next week to see if it is relevant for your team?',
+    },
+  },
+  {
+    label: 'Sales intelligence platform', audience: 'Heads of Sales · cybersecurity', matches: EXAMPLES[1],
+    fields: {
+      company_description: 'We build a sales intelligence and automation platform for B2B sales teams.',
+      offering: 'We offer a platform that helps sales teams identify target accounts and automate repetitive prospecting work.',
+      relevance: 'Sales teams selling into complex, competitive markets such as cybersecurity often spend a lot of time on manual prospecting.',
+      cta: 'Would a short call next week be useful to see if this fits how your team prospects today?',
+    },
+  },
+  {
+    label: 'API monitoring platform', audience: 'Founders · AI developer tools', matches: EXAMPLES[2],
+    fields: {
+      company_description: 'We build developer infrastructure for monitoring APIs.',
+      offering: 'We offer an API monitoring platform that tracks uptime, latency and errors for the APIs developers depend on.',
+      relevance: 'Teams shipping developer tools through APIs often need clear visibility into reliability as usage grows.',
+      cta: 'Would a quick call next week make sense to see if it fits what you are building?',
+    },
+  },
+]
+
 const EMPTY = Object.fromEntries(CONTEXT_FIELDS.map((f) => [f.key, '']))
 
 function loadContext() {
   try {
-    return { ...EMPTY, ...JSON.parse(localStorage.getItem('df.sender') || '{}') }
+    return { ...EMPTY, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem('df.sender') || '{}') }
   } catch { return { ...EMPTY } }
 }
 
@@ -56,6 +88,15 @@ export default function NewCampaign({ onCreated, health }) {
   const [err, setErr] = useState('')
 
   const set = (k) => (e) => setCtx((c) => ({ ...c, [k]: e.target.value }))
+
+  // Outreach context is saved as you type and restored on your next visit.
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(ctx)) } catch { /* storage unavailable: skip */ }
+  }, [ctx])
+
+  const applyPreset = (preset) => setCtx((c) => ({ ...c, ...preset.fields }))
+  const activePreset = PRESETS.find((p) => Object.entries(p.fields).every(([k, v]) => ctx[k] === v))
+  const suggestedPreset = PRESETS.find((p) => p.matches === prompt)
   const missing = [
     ...(prompt.trim() ? [] : ['prospecting request']),
     ...CONTEXT_FIELDS.filter((f) => f.required && !ctx[f.key].trim()).map((f) => f.label.toLowerCase()),
@@ -71,7 +112,6 @@ export default function NewCampaign({ onCreated, health }) {
     e.preventDefault()
     setBusy(true); setErr('')
     try {
-      localStorage.setItem('df.sender', JSON.stringify(Object.fromEntries(REMEMBERED.map((k) => [k, ctx[k]]))))
       const { id } = await api.create({ prompt, context: ctx, max_companies: maxCompanies })
       onCreated(id)
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
@@ -121,7 +161,22 @@ export default function NewCampaign({ onCreated, health }) {
               Each draft combines your words below with verified Crustdata facts about the prospect. DealFlow never writes claims about your
               business, so what you leave blank stays out of the draft.
             </p>
-            <div className="mt-6 grid gap-x-8 gap-y-7 sm:grid-cols-2">
+            <div className="mt-6">
+              <div className="flex items-baseline justify-between">
+                <Label>Start from a preset</Label>
+                <Label className="text-dim">Editable</Label>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {PRESETS.map((p) => (
+                  <button type="button" key={p.label} onClick={() => applyPreset(p)} title={`For: ${p.audience}`}
+                    className={`rounded-full border px-3.5 py-1.5 text-left text-[13px] transition-colors ${activePreset === p ? 'border-signal/50 bg-signal/[0.06] text-fg' : 'border-white/10 text-mute hover:border-white/25 hover:text-fg'}`}>
+                    {p.label}
+                    <span className="ml-2 font-mono text-[10px] text-dim">{p.audience}{suggestedPreset === p && activePreset !== p ? ' · matches your request' : ''}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-8 grid gap-x-8 gap-y-7 sm:grid-cols-2">
               {CONTEXT_FIELDS.map((f) => (
                 <label key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
                   <span className="flex items-baseline justify-between">
@@ -151,7 +206,7 @@ export default function NewCampaign({ onCreated, health }) {
           </div>
         </div>
 
-        <aside className="relative self-start overflow-hidden rounded-3xl border border-line bg-panel p-7 transition-colors duration-300 hover:border-signal/25 lg:sticky lg:top-10">
+        <aside className="relative self-start overflow-hidden rounded-3xl border border-line bg-panel p-7 transition-colors duration-300 hover:border-signal/30 lg:sticky lg:top-10">
           <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[radial-gradient(closest-side,rgb(255_106_44/0.16),transparent)]" />
           <div className="relative">
             <div className="flex items-center justify-between">
